@@ -1,25 +1,19 @@
 from sys import stdin
 
-from letterplay.play import Play
-
 
 class Console(object):
-    _players = [None, 'blue', 'red']
+    _players = ['blue', 'red']
 
     reset = white = ['\033[0m', '\033[0m']
-    _colours = [
-        ['\033[0m', '\033[0m'],
-        ['\033[0;34m', '\033[1;34m'],
-        ['\033[0;31m', '\033[1;31m'],
-    ]
+    _colours = {
+        None: ['\033[0m', '\033[0m'],
+        0: ['\033[0;34m', '\033[1;34m'],
+        1: ['\033[0;31m', '\033[1;31m'],
+    }
 
     def __init__(self, board, suggestor):
         self._board = board
         self._suggestor = suggestor
-
-    def _display_block(self, block):
-        c = self._colours[block.owner][block.blocked]
-        print '%s%s' % (c, block.letter, ),
 
     def loop(self):
         try:
@@ -34,16 +28,16 @@ class Console(object):
         self._suggestor.prep()  # Setup for this board
         while True:
             print 'Getting some suggestions for this board...'
-            self.show_suggestions(self._suggestor.suggestions_for(1))
+            self.show_suggestions(self._suggestor.suggestions_for(0))
             play = self.get_play()
             if not play:
                 break
-            self._board.apply_play(play)
+            self._board.apply_play(play[0], play[1])
             self.display(self._board)
 
     def display(self, board):
-        for i, block in enumerate(board):
-            self._display_block(block)
+        for i, letter in enumerate(board):
+            self._display_block(letter, board.owner(i), board.blocked(i))
             if (i + 1) % 5 == 0:
                 print self.reset[0]
 
@@ -63,11 +57,11 @@ class Console(object):
         # played. Let's give the user a few more options by presenting only one
         # way of playing each one.
         seen_words = set()
-        for suggestion in suggestions:
-            word = self._board.to_word(suggestion)
+        for positions, _ in suggestions:
+            word = self._board.to_word(positions)
             if word in seen_words:
                 continue
-            numbers = ' '.join(str(s) for s in suggestion)
+            numbers = ' '.join(str(i) for i in positions)
             print "%s (%s)" % (word, numbers)
             seen_words.add(word)
             if len(seen_words) >= 5:
@@ -107,5 +101,9 @@ class Console(object):
                 line = stdin.readline()
                 play = int(line.strip()) - 1
             positions = possible_plays[play]
-            play = Play(player, positions)
+            play = (player, self._board.to_bits(positions))
         return play
+
+    def _display_block(self, letter, owner, blocked):
+        c = self._colours[owner][blocked]
+        print '%s%s' % (c, letter, ),

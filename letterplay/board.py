@@ -1,13 +1,6 @@
 from collections import Counter
 
 
-class Block(object):
-    def __init__(self, letter, owner=0, blocked=False):
-        self.letter = letter
-        self.owner = owner
-        self.blocked = blocked
-
-
 class Board(object):
     """Represent a board state
 
@@ -15,34 +8,39 @@ class Board(object):
     """
 
     _neighbours = [
-        [1, 5], [0, 2, 6], [1, 3, 7], [2, 4, 8], [3, 9],
-        [0, 6, 10], [1, 5, 7, 11], [2, 6, 8, 12], [3, 7, 9, 13], [4, 8, 14],
-        [5, 11, 15], [6, 10, 12, 16], [7, 11, 13, 17], [8, 12, 14, 18],
-        [9, 13, 19],
-        [10, 16, 20], [11, 15, 17, 21], [12, 16, 18, 22], [13, 17, 19, 23],
-        [14, 18, 24],
-        [15, 21], [16, 20, 22], [17, 21, 23], [18, 22, 24], [19, 23]
+        0x23,  0x47,  0x8e,  0x11c,  0x218,
+        0x461,  0x8e2,  0x11c4,  0x2388,  0x4310,
+        0x8c20,  0x11c40,  0x23880,  0x47100,  0x86200,
+        0x118400,  0x238800,  0x471000,  0x8e2000,  0x10c4000,
+        0x308000,  0x710000,  0xe20000,  0x1c40000,  0x1880000,
     ]
 
     def __init__(self):
-        self._positions = []
+        # For each player, the blocks they hold, and the positions they can
+        # play (ie, the blocks the other player doesn't have blocked)
+        self.positions = [
+            [0, 0x1ffffff],
+            [0, 0x1ffffff],
+        ]
+        self._letters = ''
         self._counts = Counter()
 
     def setup(self, letters):
         """Ready the board for play with @letters"""
         # This should probably be refactored to go in __init__
-        letters = letters.replace(' ', '').replace("\n", '').lower()
+        if isinstance(letters, basestring):
+            letters = letters.replace(' ', '').replace("\n", '').lower()
 
         if len(letters) != 25:
             raise ValueError("A board must consist of 25 letters")
 
-        self._positions = [Block(letter) for letter in letters]
+        self._letters = letters
         self._counts = Counter(letters)
 
-    def apply_play(self, play):
-        for position in play:
-            if not self._positions[position].blocked:
-                self._positions[position].owner = play.player
+    def apply_play(self, player, places):
+        changed = places & self.positions[player][1]
+        self.positions[player][0] |= changed
+        self.positions[1 - player][0] &= ~changed
         self._recalculate_blocked()
 
     def plays_for(self, word):
@@ -54,7 +52,7 @@ class Board(object):
         # word
         possible_places = []
         for letter in word:
-            places = [i for i, l in enumerate(self) if l.letter == letter]
+            places = [i for i, l in enumerate(self) if l == letter]
             possible_places.append(places)
 
         # Then turn that into a list of ways to play that word
@@ -83,20 +81,43 @@ class Board(object):
         return filteredplays
 
     def _recalculate_blocked(self):
-        for i, block in enumerate(self._positions):
-            if not block.owner:
-                continue
-            if all(self._positions[n].owner == block.owner
-                   for n in self._neighbours[i]):
-                block.blocked = True
-            else:
-                block.blocked = False
+        for player in (0, 1):
+            other = self.positions[1 - player][0]
+            playable = 0x1ffffff
+            for i, neigh in enumerate(self._neighbours):
+                playable &= ~((other & neigh == neigh) << i)
+
+            self.positions[player][1] = playable
 
     def to_word(self, play):
-        return ''.join(self._positions[i].letter for i in play)
+        return ''.join(self._letters[i] for i in play)
+
+    def owner(self, block):
+        for player in (0, 1):
+            if self.positions[player][0] & (1 << block):
+                return player
+        return None
+
+    def blocked(self, block):
+        mask = 1 << block
+        return bool((~self.positions[0][1] & mask) or
+                    (~self.positions[1][1] & mask))
+
+    def to_bits(self, positions):
+        return sum(1 << x for x in positions)
+
+    def to_positions(self, bits):
+        set_bits = []
+        pos = 0
+        while bits:
+            if bits % 2:
+                set_bits.append(pos)
+            pos += 1
+            bits /= 2
+        return set_bits
 
     def __iter__(self):
-        return iter(self._positions)
+        return iter(self._letters)
 
     def __len__(self):
         return 25
@@ -106,4 +127,13 @@ class Board(object):
         return self._counts & cword == cword
 
     def __getitem__(self, index):
-        return self._positions[index]
+        return self._letters[index]
+
+    def __copy__(self):
+        ret = self.__class__()
+        ret.setup(self._letters)
+        ret.positions = [
+            [self.positions[0][0], self.positions[0][1]],
+            [self.positions[1][0], self.positions[1][1]],
+        ]
+        return ret
