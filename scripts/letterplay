@@ -1,0 +1,15 @@
+#!/usr/bin/python
+
+import sys
+
+from letterplay.dictionary import Dictionary
+from letterplay.board import Board
+from letterplay.views.console import Console
+from letterplay.suggestors.basic import Suggestor
+
+
+dictionary = Dictionary('words')
+board = Board()
+suggestor = Suggestor(dictionary, board)
+ui = Console(board, suggestor)
+ui.loop()
