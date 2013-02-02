@@ -1,4 +1,28 @@
-from collections import Counter
+class LetterBag(object):
+    """A minimal bag/multiset/Counter tweaked for checking alphabetical letters
+
+    This performs slightly better than collections.Counter for checking if
+    a word is "in" a set of letters, by taking advantage of the fact that
+    the letters are sortable.
+    """
+    def __init__(self, word=''):
+        self._letters = sorted(word)
+
+    def add(self, word):
+        self._letters.extend(word)
+        self._letters.sort()
+
+    def __contains__(self, word):
+        letters = sorted(word)
+        mynext = 0  # Which letter in the bag will I look at next?
+        mylen = len(self._letters)
+        for letter in letters:
+            while mynext < mylen and letter > self._letters[mynext]:
+                mynext += 1
+            if mynext >= mylen or letter < self._letters[mynext]:
+                return False
+            mynext += 1
+        return True
 
 
 class Board(object):
@@ -23,7 +47,7 @@ class Board(object):
             [0, 0x1ffffff],
         ]
         self._letters = ''
-        self._counts = Counter()
+        self._counts = LetterBag()
 
     def setup(self, letters):
         """Ready the board for play with @letters"""
@@ -35,7 +59,7 @@ class Board(object):
             raise ValueError("A board must consist of 25 letters")
 
         self._letters = letters
-        self._counts = Counter(letters)
+        self._counts.add(letters)
 
     def apply_play(self, player, places):
         changed = places & self.positions[player][1]
@@ -48,6 +72,7 @@ class Board(object):
 
         Equivalent plays are not included
         """
+        # TODO: Optimisation target #1
         # First find all the possible places for playing each letter of the
         # word
         possible_places = []
@@ -68,17 +93,15 @@ class Board(object):
             plays = newplays
 
         # Now we remove equivalent plays
-        filteredplays = []
-        play_check = set()
+        play_check = {}
         for play in plays:
-            play_s = '-'.join(str(b) for b in sorted(play))
-            if play_s in play_check:
+            playbits = self.to_bits(play)
+            if playbits in play_check:
                 continue
 
-            filteredplays.append(play)
-            play_check.add(play_s)
+            play_check[playbits] = play
 
-        return filteredplays
+        return play_check
 
     def _recalculate_blocked(self):
         for player in (0, 1):
@@ -123,8 +146,7 @@ class Board(object):
         return 25
 
     def __contains__(self, word):
-        cword = Counter(word)
-        return self._counts & cword == cword
+        return word in self._counts
 
     def __getitem__(self, index):
         return self._letters[index]

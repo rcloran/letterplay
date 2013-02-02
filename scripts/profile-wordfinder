@@ -1,0 +1,14 @@
+#!/usr/bin/python
+
+from letterplay.dictionary import Dictionary
+from letterplay.board import Board
+from letterplay.suggestors.basic import Suggestor
+
+
+dictionary = Dictionary('words')
+board = Board()
+board.setup('doyisndryyahbtuooqygeedrp')
+suggestor = Suggestor(dictionary, board)
+
+import cProfile
+cProfile.run('suggestor.prep()', 'profile-data')

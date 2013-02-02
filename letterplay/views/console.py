@@ -92,16 +92,18 @@ class Console(object):
 
             play = 0
             if len(possible_plays) > 1:
-                possible_plays.sort()
                 print "There are a few ways of playing that word"
+                possible_plays = list(possible_plays.items())
                 for i, possible_play in enumerate(possible_plays):
-                    print "%s) %s" % (i + 1,
-                                      ' '.join(str(x) for x in possible_play))
+                    print "%s) %s" % (
+                        i + 1,
+                        ' '.join(map(str, possible_play[1])),
+                    )
                 print "Which one? ",
                 line = stdin.readline()
                 play = int(line.strip()) - 1
-            positions = possible_plays[play]
-            play = (player, self._board.to_bits(positions))
+            positions = possible_plays[play][0]
+            play = (player, positions)
         return play
 
     def _display_block(self, letter, owner, blocked):

@@ -29,8 +29,7 @@ class Suggestor(ISuggestor):
         for word in self._dict:
             if word in self._board:
                 plays = self._board.plays_for(word)
-                self._allowed_plays.extend((p, self._board.to_bits(p))
-                                           for p in plays)
+                self._allowed_plays.extend(((v, k) for k, v in plays.items()))
 
     def _score_play(self, reusable_board, player, play):
         return self._score_board(
